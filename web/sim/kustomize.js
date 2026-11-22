@@ -13,6 +13,92 @@ const CAMPOS = new Set(['apiVersion', 'kind', 'metadata', 'resources', 'bases', 
 
 const falha = (msg) => new ApiError(`error: ${msg}`);
 
+// Tipos dos campos, como no struct Go do Kustomize. Um campo com o tipo errado
+// (por exemplo `replicas: 1` em vez de uma lista) gera o mesmo erro do kustomize.
+const TEXTO = { tipo: 'string' };
+const NUMERO = { tipo: 'int64' };
+const BOOL = { tipo: 'bool' };
+const QUALQUER = { tipo: 'any' };
+const MAPA = { tipo: 'map[string]string', mapa: true };
+const LISTA_TEXTO = { tipo: '[]string', item: TEXTO };
+const lista = (go, campos) => ({ tipo: `[]types.${go}`, item: { tipo: `types.${go}`, go, campos } });
+const OPCOES_GERADOR = { tipo: '*types.GeneratorOptions', go: 'GeneratorOptions', campos: { labels: MAPA, annotations: MAPA, disableNameSuffixHash: BOOL, immutable: BOOL } };
+const GERADOR = { name: TEXTO, namespace: TEXTO, behavior: TEXTO, literals: LISTA_TEXTO, files: LISTA_TEXTO, envs: LISTA_TEXTO, options: OPCOES_GERADOR };
+const ALVO = { tipo: '*types.Selector', go: 'Selector', campos: { group: TEXTO, version: TEXTO, kind: TEXTO, name: TEXTO, namespace: TEXTO, labelSelector: TEXTO, annotationSelector: TEXTO } };
+const ESQUEMA = {
+  apiVersion: TEXTO, kind: TEXTO, namespace: TEXTO, namePrefix: TEXTO, nameSuffix: TEXTO,
+  metadata: { tipo: '*types.ObjectMeta', go: 'ObjectMeta', campos: { name: TEXTO, namespace: TEXTO, labels: MAPA, annotations: MAPA } },
+  resources: LISTA_TEXTO, bases: LISTA_TEXTO, patchesStrategicMerge: LISTA_TEXTO,
+  commonLabels: MAPA, commonAnnotations: MAPA,
+  labels: lista('Label', { pairs: MAPA, includeSelectors: BOOL, includeTemplates: BOOL, fields: QUALQUER }),
+  images: lista('Image', { name: TEXTO, newName: TEXTO, newTag: TEXTO, digest: TEXTO }),
+  replicas: lista('Replica', { name: TEXTO, count: NUMERO }),
+  patches: lista('Patch', { path: TEXTO, patch: TEXTO, target: ALVO, options: { tipo: 'map[string]bool', mapa: true } }),
+  configMapGenerator: lista('ConfigMapArgs', GERADOR),
+  secretGenerator: lista('SecretArgs', { ...GERADOR, type: TEXTO }),
+  generatorOptions: OPCOES_GERADOR,
+};
+
+// Números do YAML guardam o texto original: num campo de texto, `newTag: 2.0`
+// continua "2.0", como no kustomize real (o sigs.k8s.io/yaml olha o tipo do campo).
+class Numero {
+  constructor(texto, valor) {
+    this.texto = texto;
+    this.valor = valor;
+  }
+}
+const numero = (base) => new yaml.Type(base.tag, { kind: 'scalar', resolve: base.resolve, construct: (d) => new Numero(d, base.construct(d)) });
+const YAML_K = yaml.FAILSAFE_SCHEMA.extend({ implicit: [yaml.types.null, yaml.types.bool, numero(yaml.types.int), numero(yaml.types.float)] });
+
+const tipoJson = (v) => (v instanceof Numero ? 'number' : Array.isArray(v) ? 'array' : v === null ? 'null' : typeof v === 'boolean' ? 'bool' : typeof v);
+
+// Converte o que ficou sem esquema para valores comuns.
+function comum(v) {
+  if (v instanceof Numero) return v.valor;
+  if (Array.isArray(v)) return v.map(comum);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([c, x]) => [c, comum(x)]));
+  return v;
+}
+
+// Confere o tipo e devolve o valor normalizado.
+function confere(valor, esq, dono, caminho) {
+  if (valor === null || valor === undefined || esq === QUALQUER) return comum(valor);
+  const t = tipoJson(valor);
+  const erro = () => falha(`invalid Kustomization: json: cannot unmarshal ${t} into Go struct field ${dono}.${caminho} of type ${esq.tipo}`);
+  if (esq === TEXTO) {
+    if (t === 'object' || t === 'array') throw erro();
+    return valor instanceof Numero ? valor.texto : String(valor);
+  }
+  if (esq === NUMERO) {
+    if (t !== 'number' || !Number.isInteger(valor.valor)) throw erro();
+    return valor.valor;
+  }
+  if (esq === BOOL) {
+    if (t !== 'bool') throw erro();
+    return valor;
+  }
+  if (esq.mapa) {
+    if (t !== 'object') throw erro();
+    const texto = esq.tipo === 'map[string]string';
+    return Object.fromEntries(Object.entries(valor).map(([c, v]) => {
+      const tv = tipoJson(v);
+      if (tv === 'object' || tv === 'array') throw falha(`invalid Kustomization: json: cannot unmarshal ${tv} into Go struct field ${dono}.${caminho} of type ${esq.tipo.replace(/^map\[string\]/, '')}`);
+      return [c, texto && v !== null ? (v instanceof Numero ? v.texto : String(v)) : comum(v)];
+    }));
+  }
+  if (esq.item) {
+    if (t !== 'array') throw erro();
+    return valor.map((v) => confere(v, esq.item, dono, caminho));
+  }
+  if (t !== 'object') throw erro();
+  return Object.fromEntries(Object.entries(valor).map(([c, v]) => {
+    if (!esq.campos[c]) throw falha(`invalid Kustomization: json: unknown field "${c}"`);
+    return [c, confere(v, esq.campos[c], esq.go, `${caminho}.${c}`)];
+  }));
+}
+
+const validaTipos = (k) => Object.fromEntries(Object.entries(k).map(([campo, v]) => [campo, confere(v, ESQUEMA[campo], 'Kustomization', campo)]));
+
 function carrega(fs, caminho, rotulo) {
   try {
     return yaml.loadAll(fs.read(caminho)).filter(Boolean);
@@ -114,7 +200,7 @@ export function kustomize(fs, dir) {
   if (!arquivo) throw falha(`unable to find one of 'kustomization.yaml', 'kustomization.yml' or 'Kustomization' in directory '${dir}'`);
   let k;
   try {
-    k = yaml.load(fs.read(arquivo)) || {};
+    k = yaml.load(fs.read(arquivo), { schema: YAML_K }) || {};
   } catch (e) {
     throw falha(`invalid Kustomization: yaml: line ${(e.mark?.line ?? 0) + 1}: ${e.reason || e.message}`);
   }
@@ -122,6 +208,7 @@ export function kustomize(fs, dir) {
   for (const campo of Object.keys(k)) {
     if (!CAMPOS.has(campo)) throw falha(`invalid Kustomization: json: unknown field "${campo}"`);
   }
+  k = validaTipos(k);
 
   let objs = [];
   for (const r of [...(k.resources || []), ...(k.bases || [])]) {
@@ -157,7 +244,7 @@ export function kustomize(fs, dir) {
 
   for (const r of k.replicas || []) {
     const alvos = objs.filter((o) => o.metadata.name === r.name && ['Deployment', 'StatefulSet', 'ReplicaSet'].includes(o.kind));
-    if (!alvos.length) throw falha(`resource with name ${r.name} does not match a config with the following GVK [Deployment.apps StatefulSet.apps ReplicaSet.apps]`);
+    if (!alvos.length) throw falha(`resource with name ${r.name ?? ''} does not match a config with the following GVK [Deployment.apps StatefulSet.apps ReplicaSet.apps]`);
     for (const o of alvos) o.spec.replicas = Number(r.count);
   }
 
