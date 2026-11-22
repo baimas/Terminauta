@@ -188,6 +188,14 @@ capítulo (por exemplo: "Qual comando mostra a diferença entre o YAML local e o
 Difícil, Bom, Fácil). Cada botão mostra quando o card volta. São no máximo 20 cards novos por
 dia, há filtro por capítulo e um atalho para praticar o assunto no Lab.
 
+Para virar o card, clique nele ou aperte Espaço, nos dois sentidos. O botão de alto-falante (ou a
+tecla L) lê a pergunta ou a resposta em voz alta, e a opção **Leitura automática** lê cada card
+sozinha. Em inglês, o áudio foi gravado com a voz neural do [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)
+e fica em `web/audio/en/`. Em português, o jogo usa a voz mais natural instalada no sistema.
+
+Ao mudar o texto de um card em inglês, regrave o áudio com `scripts/gera-audio.py`. As instruções
+estão no começo do arquivo. O `npm test` avisa quando algum áudio fica desatualizado.
+
 ## Trilha EX180
 
 Objetivos da versão EX180V422K, com o curso DO180 4.22 como base:
@@ -297,6 +305,7 @@ passar no `npm test`.
 
 [MIT](LICENSE). As bibliotecas embutidas em `web/vendor/` (xterm.js e js-yaml) mantêm as
 suas próprias licenças MIT.
+O áudio em inglês dos flashcards foi gerado com o modelo Kokoro-82M, de licença Apache 2.0.
 
 ## Aviso
 

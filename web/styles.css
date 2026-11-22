@@ -253,17 +253,49 @@ a { color: var(--roxo); }
 .flashcard { position: relative; max-width: 720px; background: var(--painel); border: 1px solid var(--borda); border-radius: 16px; padding: 22px 26px 24px; box-shadow: 0 10px 30px rgba(87, 68, 154, .10); cursor: pointer; animation: entra .25s ease-out; }
 .flashcard::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; border-radius: 16px 16px 0 0; background: linear-gradient(90deg, var(--roxo), var(--lavanda)); }
 .flashcard.virado { cursor: default; }
-.flash-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--suave); margin-bottom: 14px; }
+.flash-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; max-width: 640px; font-size: 12px; color: var(--suave); margin-bottom: 18px; }
+.auto-leitura { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.auto-leitura input { accent-color: var(--roxo); margin: 0; }
 .chip-tipo { background: var(--lavanda); color: var(--roxo); border-radius: 99px; padding: 2px 10px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
 .flash-rotulo { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--suave); margin-bottom: 4px; }
-.flash-pergunta { font-size: 18px; font-weight: 600; line-height: 1.45; margin-bottom: 18px; }
-.flash-resposta { font-size: 16px; line-height: 1.55; background: var(--nevoa); border-radius: 10px; padding: 14px 16px; animation: entra .2s ease-out; }
+/* Pilha de cartas: duas inclinadas atrás e a da frente vira em 3D ao clicar. */
+.pilha { position: relative; max-width: 640px; margin: 6px 0 4px; padding: 10px 18px; perspective: 1400px; animation: entra .25s ease-out; }
+.pilha-fundo { position: absolute; inset: 22px 36px 6px; border-radius: 22px; box-shadow: 0 12px 26px rgba(31, 37, 47, .10); transition: transform .5s ease; }
+.pilha-fundo.um { background: var(--lavanda); transform: rotate(-6deg) translate(-14px, 6px); }
+.pilha-fundo.dois { background: #b9aee0; transform: rotate(5deg) translate(16px, 8px); }
+.pilha.virada .pilha-fundo.um { transform: rotate(-8deg) translate(-20px, 8px); }
+.pilha.virada .pilha-fundo.dois { transform: rotate(7deg) translate(22px, 10px); }
+.carta { position: relative; display: grid; min-height: 300px; cursor: pointer; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2, .75, .25, 1); outline: none; }
+.pilha.virada .carta { transform: rotateY(180deg); }
+.carta:focus-visible .face { box-shadow: 0 0 0 3px var(--roxo), 0 18px 40px rgba(31, 37, 47, .18); }
+.face { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 34px 34px 22px; border-radius: 22px; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 18px 40px rgba(31, 37, 47, .16); }
+.frente { background: var(--painel); }
+.verso { background: linear-gradient(150deg, var(--roxo), var(--roxo-escuro)); color: #fff; transform: rotateY(180deg); }
+.face .flash-rotulo { text-align: center; }
+.verso .flash-rotulo { color: var(--lavanda); }
+.flash-pergunta { font-size: 21px; font-weight: 600; line-height: 1.45; text-align: center; margin: 4px 0 auto; padding-top: 4px; }
+.flash-resposta { font-size: 17px; line-height: 1.6; text-align: center; margin: 4px 0 auto; padding-top: 4px; }
+.frente .flash-rotulo { margin-top: auto; }
+.verso .flash-rotulo { margin-top: auto; }
+.verso code { background: rgba(255, 255, 255, .16); color: #fff; border-color: rgba(255, 255, 255, .25); }
+.face-rodape { margin-top: 18px; text-align: center; font-size: 11.5px; color: var(--suave); }
+.verso .face-rodape { color: var(--lavanda); }
+.frente .face-rodape kbd { background: var(--nevoa); border-color: var(--borda); color: var(--suave); }
+.ouvir { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: var(--nevoa); border: 1px solid var(--borda); color: var(--roxo); }
+.ouvir:hover:not(:disabled) { background: var(--lavanda); color: var(--roxo); border-color: var(--lavanda); }
+.verso .ouvir { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .28); color: #fff; }
+.verso .ouvir:hover:not(:disabled) { background: rgba(255, 255, 255, .26); color: #fff; border-color: rgba(255, 255, 255, .4); }
+.face-rodape .atalhos { white-space: nowrap; }
+@media (hover: none), (max-width: 680px) { .face-rodape .atalhos { display: none; } }
+.ouvir.falando { animation: pulsa 1s ease-in-out infinite; }
+@keyframes pulsa { 50% { box-shadow: 0 0 0 6px rgba(87, 68, 154, .18); } }
 .flash-resposta code, .flash-pergunta code { font-size: .9em; }
 .virar { display: inline-flex; align-items: center; gap: 10px; }
 kbd { font: 600 10.5px var(--mono); padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, .22); border: 1px solid rgba(255, 255, 255, .35); }
 .notas-flash kbd { background: var(--nevoa); border-color: var(--borda); color: var(--suave); }
-.notas-flash { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 720px; margin-top: 14px; }
-.notas-flash button { display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; font-weight: 600; }
+.notas-flash { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 640px; margin-top: 26px; transition: opacity .3s ease .25s, transform .3s ease .25s; }
+.notas-flash:not(.visivel) { opacity: 0; transform: translateY(6px); pointer-events: none; transition: none; }
+.notas-flash button { background: var(--painel); display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; font-weight: 600; }
 .notas-flash button small { font-weight: 500; font-size: 11px; color: var(--suave); }
 .notas-flash .nota-0 { color: var(--erro); }
 .notas-flash .nota-0:hover:not(:disabled) { border-color: var(--erro); color: var(--erro); background: var(--erro-fundo); }
@@ -271,7 +303,7 @@ kbd { font: 600 10.5px var(--mono); padding: 1px 6px; border-radius: 5px; backgr
 .notas-flash .nota-2:hover:not(:disabled) { background: var(--lavanda); }
 .notas-flash .nota-3:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); background: var(--ok-fundo); }
 .praticar { margin-top: 12px; }
-.flash-dica { color: var(--suave); font-size: 12px; max-width: 720px; margin-top: 12px; }
+.flash-dica { color: var(--suave); font-size: 12px; max-width: 640px; margin-top: 12px; }
 .flashcard.vazio { text-align: center; cursor: default; }
 .flashcard.vazio .fim { font-size: 40px; }
 .flashcard.vazio h2 { margin: 6px 0; }
@@ -279,10 +311,14 @@ kbd { font: 600 10.5px var(--mono); padding: 1px 6px; border-radius: 5px; backgr
 
 @media (max-width: 680px) {
   .notas-flash { grid-template-columns: repeat(2, 1fr); }
-  .flash-pergunta { font-size: 16px; }
+  .flash-pergunta { font-size: 17px; }
+  .flash-resposta { font-size: 15px; }
   .flashcard { padding: 18px; }
+  .pilha { padding: 8px 6px; }
+  .pilha-fundo { inset: 20px 18px 6px; }
+  .carta { min-height: 260px; }
+  .face { padding: 30px 20px 18px; }
 }
 
 body.modo-flash .console { display: none; }
 body.modo-flash .chamado { flex: 1 1 auto; }
-.flashcard.virado { animation: none; }

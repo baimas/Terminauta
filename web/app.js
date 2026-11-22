@@ -9,6 +9,7 @@ import { GameTerminal } from './ui/terminal.js';
 import { Abort } from './sim/shell.js';
 import { banner, icone, temaDe } from './ui/ilustracoes.js';
 import { cardsDa } from './flashcards/index.js';
+import { criaVoz } from './ui/voz.js';
 import { responde, rotuloIntervalo, fila, resumo, novoEstado } from './engine/repeticao.js';
 
 const TEXTOS = {
@@ -31,7 +32,7 @@ const TEXTOS = {
     limite: 'Simulador não é cluster: ele cobre os comandos e regras que a prova cobra, e avisa quando um comando ainda não é simulado. Quando estiver confiante, faça um simulado no modo prova.',
     nota: 'Nota', xp: 'XP', de: 'de', melhor: 'melhor resultado',
     flash: 'Flashcards', flashDesc: 'Repetição espaçada dos conceitos da prova', flashIntro: 'Leia a pergunta, responda de cabeça e só então vire o card. Seja honesto na nota: o intervalo até a próxima revisão depende dela.',
-    novos: 'Novos', aprendendo: 'Aprendendo', revisar: 'Para revisar', dominados: 'Dominados', todos: 'Todos', virar: 'Mostrar resposta', atalhoVirar: 'Espaço',
+    novos: 'Novos', aprendendo: 'Aprendendo', revisar: 'Para revisar', dominados: 'Dominados', todos: 'Todos', virar: 'Mostrar resposta', atalhoVirar: 'Espaço', cliqueVirar: 'Clique no cartão para virar', cliqueVoltar: 'Clique para ver a pergunta de novo', ouvir: 'Ouvir', autoLeitura: 'Leitura automática', atalhoOuvir: 'L ouve',
     notas: ['De novo', 'Difícil', 'Bom', 'Fácil'], restam: (n) => `${n} na fila`, praticar: 'Praticar no Lab',
     fim: 'Tudo revisado por agora!', fimProximo: (q) => `A próxima revisão é ${q}.`, fimNada: 'Não há mais cards novos neste filtro.', adiantar: 'Estudar adiantado', limiteNovos: (n) => `Limite de ${n} cards novos por dia, como no Anki.`, pergunta: 'Pergunta', resposta: 'Resposta',
     docsTitulo: `Procurar na documentação oficial (${'4.22'})`, docsGuia: 'Guia', docsTermos: 'Procure (Ctrl+F) por', docsComo: 'Abra o guia em página única e use a busca do navegador, como na prova. A dica não custa XP.', docsProva: 'Na prova você tem a documentação do produto, sem dicas. Treine a busca no índice:',
@@ -60,7 +61,7 @@ const TEXTOS = {
     limite: 'A simulator is not a cluster: it covers the commands and rules the exam asks for, and tells you when a command is not simulated yet. When you feel ready, take a practice exam in exam mode.',
     nota: 'Score', xp: 'XP', de: 'of', melhor: 'best result',
     flash: 'Flashcards', flashDesc: 'Spaced repetition of the exam concepts', flashIntro: 'Read the question, answer from memory, and only then flip the card. Be honest when rating: the interval until the next review depends on it.',
-    novos: 'New', aprendendo: 'Learning', revisar: 'Due', dominados: 'Mature', todos: 'All', virar: 'Show answer', atalhoVirar: 'Space',
+    novos: 'New', aprendendo: 'Learning', revisar: 'Due', dominados: 'Mature', todos: 'All', virar: 'Show answer', atalhoVirar: 'Space', cliqueVirar: 'Click the card to flip it', cliqueVoltar: 'Click to see the question again', ouvir: 'Listen', autoLeitura: 'Read aloud automatically', atalhoOuvir: 'L listens',
     notas: ['Again', 'Hard', 'Good', 'Easy'], restam: (n) => `${n} in the queue`, praticar: 'Practice in the Lab',
     fim: 'All caught up for now!', fimProximo: (q) => `The next review is ${q}.`, fimNada: 'No more new cards in this filter.', adiantar: 'Study ahead', limiteNovos: (n) => `Limit of ${n} new cards per day, as in Anki.`, pergunta: 'Question', resposta: 'Answer',
     docsTitulo: `Search the official documentation (${'4.22'})`, docsGuia: 'Guide', docsTermos: 'Search (Ctrl+F) for', docsComo: 'Open the single-page guide and use the browser search, as in the exam. This hint costs no XP.', docsProva: 'In the exam you have the product documentation, without hints. Practice searching from the index:',
@@ -409,17 +410,49 @@ function desenhaFlash(el) {
   const cap = tr.capitulos.find((c) => c.id === card.cap);
   const estado = estados[card.id] || novoEstado();
   const tipo = !estados[card.id] ? t.novos : estado.intervalo === 0 ? t.aprendendo : t.revisar;
-  html += `<div class="flashcard${flash.virado ? ' virado' : ''}" data-flash="virar">
-    <div class="flash-topo"><span class="chip-tipo">${esc(tipo)}</span><span>${icone(temaDe(cap?.missions[0]?.id || ''), 14)} ${esc(cap ? cap.title[L()] : '')}</span><span>${t.restam(flash.fila.length)}</span></div>
-    <div class="flash-rotulo">${t.pergunta}</div>
-    <div class="flash-pergunta">${rico(card.q[L()])}</div>
-    ${flash.virado ? `<div class="flash-rotulo">${t.resposta}</div><div class="flash-resposta">${rico(card.a[L()])}</div>` : `<button type="button" class="primario virar" data-flash="virar">${t.virar} <kbd>${t.atalhoVirar}</kbd></button>`}
+  const v = flash.virado;
+  const botaoOuvir = (lado) => (voz.suporta ? `<button type="button" class="ouvir" data-falar="${lado}" title="${t.ouvir}" aria-label="${t.ouvir}">${icone('som', 18)}</button>` : '');
+  html += `<div class="flash-topo"><span class="chip-tipo">${esc(tipo)}</span><span>${icone(temaDe(cap?.missions[0]?.id || ''), 14)} ${esc(cap ? cap.title[L()] : '')}</span><span>${t.restam(flash.fila.length)}</span>${voz.suporta ? `<label class="auto-leitura"><input type="checkbox" data-auto-leitura${voz.auto ? ' checked' : ''}> ${t.autoLeitura}</label>` : ''}</div>
+  <div class="pilha${v ? ' virada' : ''}" data-id-card="${esc(card.id)}">
+    <div class="pilha-fundo um" aria-hidden="true"></div>
+    <div class="pilha-fundo dois" aria-hidden="true"></div>
+    <div class="carta" data-flash="virar" role="button" tabindex="0" aria-label="${v ? t.cliqueVoltar : t.virar}">
+      <div class="face frente" aria-hidden="${v}">
+        ${botaoOuvir('q')}
+        <div class="flash-rotulo">${t.pergunta}</div>
+        <div class="flash-pergunta">${rico(card.q[L()])}</div>
+        <div class="face-rodape">${t.cliqueVirar}<span class="atalhos"> · <kbd>${t.atalhoVirar}</kbd> · <kbd>${t.atalhoOuvir}</kbd></span></div>
+      </div>
+      <div class="face verso" aria-hidden="${!v}">
+        ${botaoOuvir('a')}
+        <div class="flash-rotulo">${t.resposta}</div>
+        <div class="flash-resposta">${rico(card.a[L()])}</div>
+        <div class="face-rodape">${t.cliqueVoltar}</div>
+      </div>
+    </div>
   </div>`;
-  if (flash.virado) {
-    html += `<div class="notas-flash">${t.notas.map((n, i) => `<button type="button" class="nota-${i}" data-nota="${i}"><span>${n}</span><small>${rotuloIntervalo(estado, i)}</small><kbd>${i + 1}</kbd></button>`).join('')}</div>`;
-    if (cap?.missions[0]) html += `<p class="praticar"><button type="button" class="fantasma" data-praticar="${cap.missions[0].id}">${icone('terminal', 15)} ${t.praticar}: ${esc(cap.title[L()])}</button></p>`;
-  } else html += `<p class="nota flash-dica">${t.flashIntro}</p>`;
+  html += `<div class="notas-flash${v ? ' visivel' : ''}" aria-hidden="${!v}">${t.notas.map((n, i) => `<button type="button" class="nota-${i}" data-nota="${i}"${v ? '' : ' tabindex="-1"'}><span>${n}</span><small>${rotuloIntervalo(estado, i)}</small><kbd>${i + 1}</kbd></button>`).join('')}</div>`;
+  if (cap?.missions[0]) html += `<p class="praticar"><button type="button" class="fantasma" data-praticar="${cap.missions[0].id}">${icone('terminal', 15)} ${t.praticar}: ${esc(cap.title[L()])}</button></p>`;
+  html += `<p class="nota flash-dica">${t.flashIntro}</p>`;
+  const novoCard = voz.ultimo !== card.id;
   el.innerHTML = html;
+  // Leitura automática: lê a pergunta quando um cartão novo aparece.
+  if (novoCard) {
+    voz.ultimo = card.id;
+    voz.para();
+    if (voz.auto && !v) voz.falaCard(card, 'q');
+  }
+}
+
+// Leitura em voz alta: áudio gravado em inglês ou a melhor voz do sistema.
+const voz = criaVoz(() => L());
+
+// Lê a face que está visível.
+function ouvirFlash(lado) {
+  const card = flash.fila?.[0];
+  if (!card) return;
+  const qual = lado || (flash.virado ? 'a' : 'q');
+  voz.falaCard(card, qual);
 }
 
 function notaFlash(nota) {
@@ -436,10 +469,25 @@ function notaFlash(nota) {
   desenha();
 }
 
+// Vira o cartão nos dois sentidos, sem redesenhar, para a animação 3D aparecer.
 function virarFlash() {
-  if (!flash.fila?.length || flash.virado) return;
-  flash.virado = true;
-  desenhaChamado();
+  const card = flash.fila?.[0];
+  if (!card) return;
+  flash.virado = !flash.virado;
+  const v = flash.virado;
+  const t = T();
+  $('chamado').querySelector('.pilha')?.classList.toggle('virada', v);
+  $('chamado').querySelector('.frente')?.setAttribute('aria-hidden', String(v));
+  $('chamado').querySelector('.verso')?.setAttribute('aria-hidden', String(!v));
+  $('chamado').querySelector('.carta')?.setAttribute('aria-label', v ? t.cliqueVoltar : t.virar);
+  const notas = $('chamado').querySelector('.notas-flash');
+  if (notas) {
+    notas.classList.toggle('visivel', v);
+    notas.setAttribute('aria-hidden', String(!v));
+    notas.querySelectorAll('button').forEach((b) => (v ? b.removeAttribute('tabindex') : b.setAttribute('tabindex', '-1')));
+  }
+  voz.para();
+  if (voz.auto) voz.falaCard(card, v ? 'a' : 'q');
 }
 
 function desenhaRelogio() {
@@ -466,6 +514,10 @@ function desenhaRelogio() {
 function desenha() {
   // Nos flashcards o terminal sai de cena e o card ocupa o painel todo.
   document.body.classList.toggle('modo-flash', Boolean(selecionada?.flash));
+  if (!selecionada?.flash) {
+    voz.para();
+    voz.ultimo = null;
+  }
   desenhaTopo();
   desenhaLista();
   desenhaChamado();
@@ -508,6 +560,9 @@ $('chamado').addEventListener('click', async (e) => {
     $('chamado').scrollTop = 0;
     return;
   }
+  const falar = e.target.closest('[data-falar]');
+  if (falar) return ouvirFlash(falar.dataset.falar);
+  if (e.target.closest('.auto-leitura')) return;
   const acaoFlash = e.target.closest('[data-flash]')?.dataset.flash;
   if (acaoFlash === 'virar') return virarFlash();
   if (acaoFlash === 'adiantar') {
@@ -578,13 +633,26 @@ $('btn-idioma').addEventListener('click', () => {
 
 term.onCommand = () => salvaSessao();
 
-// Atalhos dos flashcards: Espaço vira, 1 a 4 respondem (fora do terminal e do editor).
+document.addEventListener('change', (e) => {
+  if (e.target.matches?.('[data-auto-leitura]')) {
+    voz.defineAuto(e.target.checked);
+    if (voz.auto) ouvirFlash();
+    else voz.para();
+  }
+});
+
+// Atalhos dos flashcards: Espaço vira (nos dois sentidos), L lê em voz alta, 1 a 4 respondem (fora do terminal e do editor).
 document.addEventListener('keydown', (e) => {
   if (!selecionada?.flash || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.target.closest?.('.terminal, textarea, input, .editor')) return;
-  if ((e.key === ' ' || e.key === 'Enter') && !flash.virado) {
+  if (e.key === ' ' || e.key === 'Enter') {
+    // Em outros botões o Espaço continua clicando neles; no de áudio, vira o cartão.
+    if (e.target.closest?.('button:not(.ouvir), label')) return;
     e.preventDefault();
     virarFlash();
+  } else if (e.key === 'l' || e.key === 'L') {
+    e.preventDefault();
+    ouvirFlash();
   } else if (flash.virado && ['1', '2', '3', '4'].includes(e.key)) {
     e.preventDefault();
     notaFlash(Number(e.key) - 1);

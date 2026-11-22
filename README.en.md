@@ -188,6 +188,15 @@ server?" → `oc diff -f`). Answer from memory, flip the card (Space), and rate 
 (Again, Hard, Good, Easy). Each button shows when the card comes back. There are at most 20
 new cards per day, a chapter filter, and a shortcut to practice the topic in the Lab.
 
+Click the card or press Space to flip it either way. The speaker button (or the L key) reads
+the question or the answer aloud, and the **Read aloud automatically** option reads every card
+for you. The English audio was recorded with the [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)
+neural voice and lives in `web/audio/en/`. In Portuguese, the game uses the most natural voice
+installed on the system.
+
+When you change the text of an English card, record its audio again with `scripts/gera-audio.py`.
+The instructions are at the top of the file. `npm test` warns when an audio file is out of date.
+
 ## EX180 track
 
 Objectives of exam version EX180V422K, based on the DO180 4.22 course:
@@ -297,6 +306,8 @@ Open an issue. New missions follow the format of the files in `web/missions/` an
 
 [MIT](LICENSE). The libraries bundled in `web/vendor/` (xterm.js and js-yaml) keep their own
 MIT licenses.
+
+The English flashcard audio was generated with the Kokoro-82M model, licensed under Apache 2.0.
 
 ## Disclaimer
 
