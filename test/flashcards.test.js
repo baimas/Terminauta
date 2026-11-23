@@ -17,7 +17,7 @@ test('cards com id único, textos nos dois idiomas e capítulo existente', () =>
 });
 
 test('todo capítulo das duas trilhas tem pelo menos 5 cards', () => {
-  for (const t of TRILHAS) for (const cap of t.capitulos) assert.ok(cardsDa(t.id, cap.id).length >= 5, `${t.id} ${cap.id}`);
+  for (const t of TRILHAS) for (const cap of t.capitulos.filter((c) => !c.guia)) assert.ok(cardsDa(t.id, cap.id).length >= 5, `${t.id} ${cap.id}`);
   assert.ok(cardsDa('ex280').length >= 90 && cardsDa('ex180').length >= 80);
 });
 

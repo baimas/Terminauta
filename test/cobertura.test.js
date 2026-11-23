@@ -40,11 +40,11 @@ test('o que não é simulado está declarado, com motivo nos dois idiomas', () =
 });
 
 test('cada simulado cobre todos os domínios da prova da trilha', () => {
-  for (const ex of EXAMS) {
+  for (const ex of EXAMS.filter((e) => !e.guia)) {
     const caps = new Set(ex.partes.map((m) => chapterOf(m.id).id));
     const t = trilha(ex.trilha);
     // EX280: o capítulo de updates (c9) é conteúdo do curso, não da lista da prova.
-    for (const c of t.capitulos.filter((x) => x.id !== 'c9')) assert.ok(caps.has(c.id), `${ex.id} sem ${c.id}`);
+    for (const c of t.capitulos.filter((x) => x.id !== 'c9' && !x.guia)) assert.ok(caps.has(c.id), `${ex.id} sem ${c.id}`);
     for (const m of ex.partes) assert.equal(m.trilha, ex.trilha, `${ex.id}: ${m.id} é de outra trilha`);
   }
 });

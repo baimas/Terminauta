@@ -264,7 +264,7 @@ function desenhaLista() {
   for (const cap of tr.capitulos) {
     const feitas = cap.missions.filter((m) => progress.of(m.id).done).length;
     const pct = cap.missions.length ? Math.round((feitas / cap.missions.length) * 100) : 0;
-    html += `<div class="capitulo${cap.missions.length ? '' : ' vazio'}"><h2><span class="rotulo">${icone(temaDe(cap.missions[0]?.id || ''), 15)}${esc(cap.id.slice(1))} · ${esc(cap.title[L()])}</span><span>${cap.missions.length ? `${feitas}/${cap.missions.length}` : ''}</span></h2><p>${esc(cap.domain[L()])}</p><div class="progresso"><span style="width:${pct}%"></span></div></div>`;
+    html += `<div class="capitulo${cap.missions.length ? '' : ' vazio'}"><h2><span class="rotulo">${icone(temaDe(cap.missions[0]?.id || ''), 15)}${esc(cap.guia ? 'G' : cap.id.slice(1))} · ${esc(cap.title[L()])}</span><span>${cap.missions.length ? `${feitas}/${cap.missions.length}` : ''}</span></h2><p>${esc(cap.domain[L()])}</p><div class="progresso"><span style="width:${pct}%"></span></div></div>`;
     if (!cap.missions.length) html += `<div class="em-breve">${t.emBreve}</div>`;
     for (const m of cap.missions) {
       const p = progress.of(m.id);
@@ -309,7 +309,7 @@ function desenhaChamado() {
   const p = progress.of(m.id);
   const cap = chapterOf(m.id);
   let html = banner(m.id, m.title[L()]);
-  html += `<div class="etiqueta">${icone(temaDe(m.id), 14)}${esc(cap ? `${cap.id.slice(1)} · ${cap.title[L()]}` : '')}</div><h1>${esc(m.title[L()])}</h1>`;
+  html += `<div class="etiqueta">${icone(temaDe(m.id), 14)}${esc(cap ? `${cap.guia ? 'G' : cap.id.slice(1)} · ${cap.title[L()]}` : '')}</div><h1>${esc(m.title[L()])}</h1>`;
   html += `<div class="meta"><span>${t.tempo}: <b>${m.minutes} ${t.min}</b></span><span>${t.dificuldade}: <b>${'●'.repeat(m.difficulty)}${'○'.repeat(3 - m.difficulty)}</b></span><span>XP: <b>${m.xp}</b></span>${p.tries ? `<span>${t.melhor}: <b>${p.xp} XP</b></span>` : ''}</div>`;
   html += `<p class="historia">${rico(m.story[L()])}</p>`;
   html += `<h3>${t.tarefas}</h3>${listaTarefas(m.id, m.tasks[L()])}`;
@@ -399,7 +399,7 @@ function desenhaFlash(el) {
   let html = banner(`flash-${tr.id}`, t.flash);
   html += `<div class="etiqueta">${icone('cartas', 14)}${t.flash} · ${tr.nome}</div><h1>${t.flash} ${tr.nome}</h1>`;
   html += `<div class="meta"><span>${t.novos}: <b>${r.novos}</b></span><span>${t.aprendendo}: <b>${r.aprendendo}</b></span><span>${t.revisar}: <b>${r.vencidos}</b></span><span>${t.dominados}: <b>${r.maduros}</b> / ${r.total}</span></div>`;
-  html += `<div class="filtros">${[{ id: null, rotulo: t.todos }, ...tr.capitulos.map((c) => ({ id: c.id, rotulo: `${c.id.slice(1)} · ${c.title[L()]}` }))].map((f) => `<button type="button" class="chip${flash.filtro === f.id ? ' ativo' : ''}" data-filtro="${f.id ?? ''}">${esc(f.rotulo)}</button>`).join('')}</div>`;
+  html += `<div class="filtros">${[{ id: null, rotulo: t.todos }, ...tr.capitulos.filter((c) => !c.guia).map((c) => ({ id: c.id, rotulo: `${c.id.slice(1)} · ${c.title[L()]}` }))].map((f) => `<button type="button" class="chip${flash.filtro === f.id ? ' ativo' : ''}" data-filtro="${f.id ?? ''}">${esc(f.rotulo)}</button>`).join('')}</div>`;
   const card = flash.fila[0];
   if (!card) {
     const proximos = todos.map((c) => estados[c.id]?.vence).filter(Boolean).sort((a, b) => a - b);

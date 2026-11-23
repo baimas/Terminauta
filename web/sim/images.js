@@ -4,8 +4,13 @@ import { fakeDigest } from './util.js';
 
 export const REGISTRY = 'registry.lab.example.com:8443';
 
+// Registro do guia de laboratório (ex.: registry.ocp4.example.com:8443): é o mesmo
+// registro do laboratório, com outro nome.
+const REGISTRO_GUIA = 'registry.ocp4.example.com:8443';
+const canonico = (repo) => (repo.startsWith(`${REGISTRO_GUIA}/`) ? REGISTRY + repo.slice(REGISTRO_GUIA.length) : repo === 'gitlab/gitlab-ce' ? `docker.io/${repo}` : repo);
+
 function img(nome, tags, extra = {}) {
-  const repo = `${REGISTRY}/${nome}`;
+  const repo = /^[^/]+[.:][^/]*\//.test(nome) ? nome : `${REGISTRY}/${nome}`;
   const mapa = {};
   for (const t of tags) {
     const [tag, igualA] = t.split('=');
@@ -124,6 +129,49 @@ export const IMAGES = [
     logs: (v) => [`[notes] version ${v.tag}`, '[notes] storing attachments in /var/lib/notes', '[notes] listening on 0.0.0.0:8080'],
   }),
   img('ubi9/ubi', ['9.4', 'latest=9.4'], { port: null, user: '0', exits: 0, size: '78.2MB', logs: () => [] }),
+  // Guia de laboratório EX280: imagens citadas nas questões.
+  img('redhattraining/hello-world-nginx', ['v1.0', 'latest=v1.0'], {
+    logs: () => ['[notice] 1#1: nginx/1.20.1', '[notice] 1#1: start worker processes'],
+  }),
+  // Aplicação que escuta na porta 8443 (alvo da liveness probe do guia).
+  img('redhattraining/hello-secure', ['1.0', 'latest=1.0'], {
+    port: 8443,
+    logs: () => ['[secure] loading configuration', '[secure] listening on 0.0.0.0:8443'],
+  }),
+  // Cliente do banco: o log mostra se a conexão com DB_HOST:3306 passa pelas network policies.
+  img('redhattraining/db-checker', ['1.0', 'latest=1.0'], {
+    port: null,
+    conecta: (env, t) => {
+      const alvo = `${env.DB_HOST}:${env.DB_PORT || 3306}`;
+      const falha = { dns: `could not resolve host ${env.DB_HOST}`, bloqueada: `connection to ${alvo} timed out`, recusada: `connection to ${alvo} refused` }[t.erro];
+      return ['[checker] version 1.0', `[checker] connecting to ${alvo}`, falha ? `[checker] ERROR: ${falha}` : `[checker] connection to ${alvo} established`];
+    },
+    logs: () => ['[checker] version 1.0'],
+  }),
+  img('redhattraining/etherpad', ['1.8.0', 'latest=1.8.0'], {
+    logs: () => ['[INFO] server - Etherpad is running', '[INFO] http - HTTP server listening on 0.0.0.0:8080'],
+  }),
+  img('registry.access.redhat.com/rhscl/mysql-57-rhel7', ['5.7-47', 'latest=5.7-47'], {
+    proto: 'mysql',
+    port: 3306,
+    user: '27',
+    size: '172.1MB',
+    requires: [['MYSQL_ROOT_PASSWORD'], ['MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DATABASE']],
+    crashLog: VALIDA_MYSQL,
+    logs: () => ['=> sourcing 20-validate-variables.sh ...', '=> sourcing 25-validate-replication-variables.sh ...', "[Note] /opt/rh/rh-mysql57/root/usr/libexec/mysqld: ready for connections. Version: '5.7.24'  socket: '/var/lib/mysql/mysql.sock'  port: 3306"],
+  }),
+  img('registry.access.redhat.com/ubi9/httpd-24', ['1-321', 'latest=1-321'], {
+    logs: () => ['=> sourcing 10-set-mpm.sh ...', "AH00558: httpd: Could not reliably determine the server's fully qualified domain name", '[mpm_event:notice] AH00489: Apache/2.4.57 (Red Hat Enterprise Linux) configured -- resuming normal operations'],
+  }),
+  // Exige UID 0: sem a SCC anyuid, o contêiner cai em CrashLoopBackOff.
+  img('docker.io/gitlab/gitlab-ce', ['8.4.3-ce.0', 'latest=8.4.3-ce.0'], {
+    port: 80,
+    user: '0',
+    root: true,
+    size: '1.2GB',
+    rootLog: ['Thank you for using GitLab Docker Image!', 'chown: changing ownership of \'/var/opt/gitlab\': Operation not permitted', 'FATAL: this image must run as root (UID 0)'],
+    logs: () => ['Thank you for using GitLab Docker Image!', 'Current version: gitlab-ce=8.4.3-ce.0', 'Configure GitLab for your system by editing /etc/gitlab/gitlab.rb file', 'Running handlers complete', 'gitlab Reconfigured!'],
+  }),
 ];
 
 // Imagens de componentes do próprio cluster: sempre válidas.
@@ -150,7 +198,9 @@ export function parseRef(ref) {
 
 // Devolve {image, tag, digest} ou {error: 'repo' | 'manifest'}.
 export function findImage(ref) {
-  const { repo, tag, digest } = parseRef(ref);
+  const analisada = parseRef(ref);
+  const { tag, digest } = analisada;
+  const repo = canonico(analisada.repo);
   if (repo.startsWith('quay.io/openshift-release-dev/') || repo.startsWith('registry.redhat.io/')) return { image: SISTEMA, tag: 'latest', digest: fakeDigest(ref) };
   const image = IMAGES.find((i) => i.repo === repo);
   if (!image) return { error: 'repo', repo, tag, digest };

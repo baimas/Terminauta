@@ -546,8 +546,8 @@ export const builtins = {
 
   help({ env }) {
     return ok(env.t(
-      'Comandos simulados: oc (kubectl), helm, htpasswd, openssl, curl, nc, mysql (mariadb), psql, ssh utility, watch, cat, ls, cd, pwd, mkdir, rm, cp, mv, touch, echo, grep, head, tail, wc, sort, uniq, cut, tr, awk, sed, base64, export, env, history, clear, sleep, vi/vim/nano, lab.\nUse `oc --help` e `oc <comando> -h` para a ajuda do oc, `oc explain` para os campos dos recursos, `oc rsh POD` para entrar em um pod e `lab grade` para corrigir a missão.\n',
-      'Simulated commands: oc (kubectl), helm, htpasswd, openssl, curl, nc, mysql (mariadb), psql, ssh utility, watch, cat, ls, cd, pwd, mkdir, rm, cp, mv, touch, echo, grep, head, tail, wc, sort, uniq, cut, tr, awk, sed, base64, export, env, history, clear, sleep, vi/vim/nano, lab.\nUse `oc --help` and `oc <command> -h` for oc help, `oc explain` for resource fields, `oc rsh POD` to open a shell in a pod, and `lab grade` to grade the mission.\n',
+      'Comandos simulados: oc (kubectl), helm, htpasswd, openssl, curl, tar, script, nc, mysql (mariadb), psql, ssh utility, watch, cat, ls, cd, pwd, mkdir, rm, cp, mv, touch, echo, grep, head, tail, wc, sort, uniq, cut, tr, awk, sed, base64, export, env, history, clear, sleep, vi/vim/nano, lab.\nUse `oc --help` e `oc <comando> -h` para a ajuda do oc, `oc explain` para os campos dos recursos, `oc rsh POD` para entrar em um pod e `lab grade` para corrigir a missão.\n',
+      'Simulated commands: oc (kubectl), helm, htpasswd, openssl, curl, tar, script, nc, mysql (mariadb), psql, ssh utility, watch, cat, ls, cd, pwd, mkdir, rm, cp, mv, touch, echo, grep, head, tail, wc, sort, uniq, cut, tr, awk, sed, base64, export, env, history, clear, sleep, vi/vim/nano, lab.\nUse `oc --help` and `oc <command> -h` for oc help, `oc explain` for resource fields, `oc rsh POD` to open a shell in a pod, and `lab grade` to grade the mission.\n',
     ));
   },
 };

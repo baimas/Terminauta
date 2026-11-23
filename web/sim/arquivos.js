@@ -119,6 +119,28 @@ export function tar(ctx) {
   return ok(o.v ? nomes.join('\n') + '\n' : '');
 }
 
+// /usr/bin/script do laboratório: envia ao suporte da Red Hat o pacote de
+// diagnóstico (`system10-<id do cluster>.tar.gz`, feito com `tar` a partir da
+// pasta do must-gather) e registra o envio no cluster.
+export function script(ctx) {
+  const fs = ctx.env.fs;
+  const c = ctx.env.cluster;
+  const arq = ctx.args.find((a) => !a.startsWith('-'));
+  if (!arq) return falha('Usage: /usr/bin/script system10-<cluster-id>.tar.gz');
+  const caminho = fs.resolve(ctx.sh.cwd, arq);
+  if (!fs.isFile(caminho)) return falha(`script: ${arq}: No such file or directory`);
+  const id = c.get('ClusterVersion', 'version')?.spec.clusterID;
+  const m = arq.split('/').pop().match(/^system10-(.+)\.tar\.gz$/);
+  if (!m) return falha(`script: ${arq}: the file name must be system10-<cluster-id>.tar.gz`);
+  if (m[1] !== id) return falha(`script: cluster id "${m[1]}" does not match this cluster (${id})`);
+  const texto = fs.read(caminho);
+  if (!ehTar(texto)) return falha(`script: ${arq}: not a tar archive (create it with: tar cvaf ${arq.split('/').pop()} <must-gather directory>)`);
+  const { arquivos } = leTar(texto);
+  if (!Object.keys(arquivos).some((n) => n.endsWith('event-filter.html') || n.includes('cluster-scoped-resources'))) return falha(`script: ${arq}: no must-gather data found in the archive`);
+  c.side.suporte = { arquivo: arq.split('/').pop(), id, arquivos: Object.keys(arquivos).length };
+  return ok(`Uploading ${arq.split('/').pop()} ...\nUpload complete: ${Object.keys(arquivos).length} files received by Red Hat Support.\n`);
+}
+
 export function chmod(ctx) {
   const pos = ctx.args.filter((a) => !/^-[Rvcf]+$/.test(a));
   if (pos.length < 2) return falha(pos.length ? `chmod: missing operand after '${pos[0]}'\nTry 'chmod --help' for more information.` : "chmod: missing operand\nTry 'chmod --help' for more information.");

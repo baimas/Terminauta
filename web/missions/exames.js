@@ -17,6 +17,14 @@ export const SIMULADOS = [
     title: { pt: 'Simulado B', en: 'Practice exam B' },
     partes: ['c0-imagens', 'c1-configuracao', 'c1-exportar', 'c2-replicasets', 'c2-helm-upgrade', 'c3-usuarios', 'c4-passthrough', 'c4-service-ca', 'c5-nodeport', 'c5-metallb', 'c5-nad', 'c6-limitrange', 'c6-clusterquota', 'c7-manual', 'c8-api', 'c8-privilegiado', 'c8-scc-diagnostico', 'c9-operador'],
   },
+  // As 20 questões do guia de laboratório prático, exatamente como no guia.
+  {
+    id: 'prova-guia',
+    trilha: 'ex280',
+    guia: true,
+    title: { pt: 'Simulado do Guia (20 questões)', en: 'Lab guide exam (20 questions)' },
+    partes: ['g01-htpasswd', 'g02-projetos-rbac', 'g03-grupos', 'g04-quota', 'g05-limitrange', 'g06-escala-manual', 'g07-hpa', 'g08-secret', 'g09-secret-env', 'g10-rota-edge', 'g11-sa-anyuid', 'g12-gitlab-scc', 'g13-helm', 'g14-cronjob', 'g15-template-projeto', 'g16-file-integrity', 'g17-pv-nfs', 'g18-must-gather', 'g19-netpol-mysql', 'g20-liveness'],
+  },
   // EX180: 2 horas (página oficial). A nota de corte oficial não foi publicada;
   // usamos 210 de 300, como na EX280.
   {
@@ -57,6 +65,7 @@ export function montaExame(def, missoes) {
   return {
     id: def.id,
     exam: true,
+    guia: Boolean(def.guia),
     trilha: def.trilha,
     minutes: def.minutos || 180,
     xp: 0,

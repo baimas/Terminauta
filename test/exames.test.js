@@ -21,6 +21,6 @@ for (const exame of EXAMS) {
     assert.deepEqual(falhas, []);
     assert.equal(depois.nota, 300);
     // Cada domínio (capítulo) da trilha aparece na nota.
-    assert.equal(depois.dominios.length, trilha(exame.trilha).capitulos.length);
+    assert.equal(depois.dominios.length, exame.guia ? 1 : trilha(exame.trilha).capitulos.filter((c) => !c.guia).length);
   });
 }

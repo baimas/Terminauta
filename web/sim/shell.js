@@ -4,7 +4,7 @@ import { HOME } from './fs.js';
 import { ApiError } from './cluster.js';
 import { builtins } from './builtins.js';
 import { oc, skopeo } from './oc/index.js';
-import { tar, chmod, which, sudo, source, file, noPath, BINARIO_OC, PATH_PADRAO } from './arquivos.js';
+import { tar, script, chmod, which, sudo, source, file, noPath, BINARIO_OC, PATH_PADRAO } from './arquivos.js';
 import { curl } from './curl.js';
 import { helm } from './helm.js';
 import { htpasswd } from './rbac.js';
@@ -72,7 +72,7 @@ export class Shell {
     this.cwd = HOME;
     this.vars = { HOME, USER: 'student', HOSTNAME: 'workstation', PATH: PATH_PADRAO, '?': '0' };
     this.history = [];
-    this.cmds = { ...builtins, oc, kubectl: oc, skopeo, curl, helm, htpasswd, openssl, nc, ncat: nc, mysql, mariadb: mysql, psql, ssh, tar, chmod, which, sudo, source, '.': source, file };
+    this.cmds = { ...builtins, oc, kubectl: oc, skopeo, curl, helm, htpasswd, openssl, nc, ncat: nc, mysql, mariadb: mysql, psql, ssh, tar, script, chmod, which, sudo, source, '.': source, file };
     this.pod = null; // contexto do contêiner quando se está dentro de `oc rsh`
     this.salvo = null;
   }
@@ -198,11 +198,15 @@ export class Shell {
   async tokens(src) {
     const out = [];
     let cur = null;
+    let glob = false; // `*` ou `?` sem aspas na palavra atual
     const fecha = () => {
       if (cur !== null) {
-        out.push({ t: 'w', v: cur });
+        const achados = glob && !this.pod ? this.globa(cur) : null;
+        if (achados) for (const a of achados) out.push({ t: 'w', v: a });
+        else out.push({ t: 'w', v: cur });
         cur = null;
       }
+      glob = false;
     };
     let i = 0;
     while (i < src.length) {
@@ -258,6 +262,7 @@ export class Shell {
           out.push({ t: 'op', v: op });
           i += op.length;
         } else {
+          if (c === '*' || c === '?') glob = true;
           cur = (cur ?? '') + c;
           i++;
         }
@@ -265,6 +270,21 @@ export class Shell {
     }
     fecha();
     return out;
+  }
+
+  // Expande `*` e `?` no último trecho do caminho, como o bash: sem
+  // correspondência, a palavra segue literal (devolve null).
+  globa(padrao) {
+    const fs = this.env.fs;
+    const barra = padrao.lastIndexOf('/');
+    const dir = barra >= 0 ? padrao.slice(0, barra + 1) : '';
+    const base = padrao.slice(barra + 1);
+    if (/[*?]/.test(dir)) return null;
+    const pasta = fs.resolve(this.cwd, dir || '.');
+    if (!fs.isDir(pasta)) return null;
+    const re = new RegExp(`^${base.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
+    const nomes = fs.ls(pasta).filter((n) => re.test(n) && (base.startsWith('.') || !n.startsWith('.'))).sort();
+    return nomes.length ? nomes.map((n) => dir + n) : null;
   }
 
   async run(fonte, { sub = false } = {}) {

@@ -179,6 +179,21 @@ A instalação de operators pelo console web não é simulada; o jogo cobre o ca
 - **Um canal à frente:** troca de canal de um operator com aprovação manual.
 - **Prova oral da Plataforma:** cinco perguntas sobre canais, rollback, EUS e atualização de operators.
 
+## Guia de laboratório (EX280)
+
+O capítulo **G · Guia de laboratório** e o **Simulado do Guia (20 questões)** trazem as 20 questões
+do guia prático EX280, com o enunciado e os objetivos exatamente como no guia. Cada questão é uma
+missão (`web/missions/g/guia.js`); o simulado reúne as 20 num cluster só, 3 horas, nota de 0 a 300.
+
+- O guia usa `ocp4.example.com` (repositório Helm, registro, hosts de routes), e o simulador aceita
+  esses nomes. Onde o guia dá variações do cenário (outros nomes e valores), a correção aceita as variações.
+- A Questão 9 depende do secret da Questão 8, e a 12 da service account da 11, como no guia.
+- A Questão 16 pede o console web, que não é simulado: a mesma instalação é feita pela CLI.
+- O `oc` é o 4.22 real: `--docker-image` (`oc new-app`) e `--cpu-percent` (`oc autoscale`) não existem
+  mais. Use `--image` e `--cpu 60%`; as dicas de cada questão avisam.
+- Binários do guia no shell simulado: `oc`, `helm`, `htpasswd`, `openssl`, `curl`, `tar` e
+  `/usr/bin/script` (o script de envio ao suporte da Questão 18). O shell também expande `*` e `?`.
+
 ## Flashcards
 
 O item **Flashcards**, no topo da lista, abre um baralho com repetição espaçada no estilo do

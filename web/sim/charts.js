@@ -2,6 +2,9 @@
 import { REGISTRY } from './images.js';
 
 export const REPO_URL = 'http://helm.lab.example.com/charts';
+// O guia de laboratório chama o mesmo repositório de helm.ocp4.example.com.
+export const REPO_URLS = [REPO_URL, 'http://helm.ocp4.example.com/charts'];
+export const ehRepo = (url) => REPO_URLS.includes(url);
 
 function helpers(n) {
   return `{{/*
@@ -145,7 +148,7 @@ The application is not exposed. Enable the route with:
 `;
 }
 
-function valores(n, imagem) {
+function valores(n, imagem, rota = false) {
   return `# Default values for ${n}.
 # This is a YAML-formatted file.
 
@@ -165,7 +168,7 @@ service:
 
 route:
   # Creates an OpenShift route for the service.
-  enabled: false
+  enabled: ${rota}
   # Leave empty to let OpenShift generate the host name.
   host: ""
   # Uses edge TLS termination and redirects HTTP to HTTPS.
@@ -184,14 +187,14 @@ resources: {}
 `;
 }
 
-function chart(n, versao, appVersion, descricao, imagem) {
+function chart(n, versao, appVersion, descricao, imagem, rota = false) {
   return {
     versao,
     appVersion,
     descricao,
     files: {
       'Chart.yaml': `apiVersion: v2\nname: ${n}\ndescription: ${descricao}\ntype: application\nversion: ${versao}\nappVersion: "${appVersion}"\nmaintainers:\n  - name: Nimbus Platform Team\n`,
-      'values.yaml': valores(n, imagem),
+      'values.yaml': valores(n, imagem, rota),
       'README.md': `# ${n}\n\n${descricao}\n\nInstall with:\n\n    helm install ${n} nimbus/${n}\n\nSee values.yaml for the configurable parameters.\n`,
       'templates/_helpers.tpl': helpers(n),
       'templates/deployment.yaml': deployment(n),
@@ -204,6 +207,10 @@ function chart(n, versao, appVersion, descricao, imagem) {
 
 // Charts por nome, da versão mais antiga para a mais nova.
 export const CHARTS = {
+  etherpad: [
+    chart('etherpad', '0.0.6', '1.8.0', 'Real-time collaborative editor (Etherpad)', 'redhattraining/etherpad', true),
+    chart('etherpad', '0.0.7', '1.8.0', 'Real-time collaborative editor (Etherpad)', 'redhattraining/etherpad', true),
+  ],
   inventory: [
     chart('inventory', '0.1.0', '3.2', 'Inventory service for Nimbus', 'nimbus/inventory'),
     chart('inventory', '0.2.0', '3.3', 'Inventory service for Nimbus', 'nimbus/inventory'),

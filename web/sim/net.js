@@ -3,6 +3,7 @@
 import { APPS_DOMAIN } from './cluster.js';
 import { findImage } from './images.js';
 import { endpoints, podPronto, resolveEnv, tlsDaAplicacao } from './controllers.js';
+import { EXPORTS_NFS, dadosDoVolume } from './storage.js';
 import { ROUTER_CERT, API_CERT, SERVICE_CA, verifica } from './tls.js';
 import { matchLabels } from './util.js';
 import { VERSAO, KUBE } from './seed.js';
@@ -107,6 +108,9 @@ export function resolve(c, host, pod) {
   if (h === API_HOST) return { tipo: 'api', ip: '192.168.50.10' };
   if (h === CONSOLE_HOST) return { tipo: 'console', ip: '192.168.50.10' };
   if (h.endsWith('.' + APPS_DOMAIN)) return { tipo: 'route', ip: '192.168.50.10' };
+  // O guia de laboratório usa apps.ocp4.example.com, e uma route pode ter qualquer
+  // host (nome próprio): o roteador atende o que estiver cadastrado.
+  if (h.endsWith('.apps.ocp4.example.com') || c.list('Route').some((r) => r.spec.host?.toLowerCase() === h)) return { tipo: 'route', ip: '192.168.50.10' };
   if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) {
     if (h === '127.0.0.1') return pod ? { tipo: 'pod', pod, ip: h } : { tipo: 'local', ip: h };
     if (h === KUBE_IP) return pod ? { tipo: 'kube', ip: h } : { tipo: 'inalcancavel', ip: h };
@@ -164,6 +168,18 @@ function respostaDoPod(c, pod, porta, caminho, https = false) {
   if (nome === 'rhel9/postgresql-13') return { erro: 'vazia' };
   const json = (o) => ({ status: 200, tipo: 'application/json', corpo: JSON.stringify(o) + '\n', ...extra });
   const html = (titulo, texto) => ({ status: 200, tipo: 'text/html; charset=UTF-8', corpo: `<html>\n  <head><title>${titulo}</title></head>\n  <body>\n    <h1>${titulo}</h1>\n    <p>${texto}</p>\n  </body>\n</html>\n`, ...extra });
+  // Volume montado na pasta de conteúdo do servidor web: serve o que está nele.
+  const RAIZES_WEB = ['/usr/share/nginx/html', '/var/www/html', '/opt/app-root/src'];
+  const montagem = (ct.volumeMounts || []).find((vm) => RAIZES_WEB.includes(vm.mountPath));
+  if (montagem && /nginx|httpd/.test(img.repo)) {
+    const vol = (pod.spec.volumes || []).find((x) => x.name === montagem.name);
+    const pvc = vol?.persistentVolumeClaim && c.get('PersistentVolumeClaim', vol.persistentVolumeClaim.claimName, pod.metadata.namespace);
+    const pv = pvc?.spec.volumeName && c.get('PersistentVolume', pvc.spec.volumeName);
+    const arquivos = { ...(pv?.spec.nfs ? EXPORTS_NFS[pv.spec.nfs.path] : {}), ...(dadosDoVolume(c, pod.metadata.namespace, vol?.persistentVolumeClaim?.claimName)?.files || {}) };
+    const arq = caminho === '/' ? 'index.html' : caminho.replace(/^\//, '');
+    if (arquivos[arq] === undefined) return { status: caminho === '/' ? 403 : 404, tipo: 'text/html', corpo: `<html>\n<head><title>${caminho === '/' ? '403 Forbidden' : '404 Not Found'}</title></head>\n<body>\n<center><h1>${caminho === '/' ? '403 Forbidden' : '404 Not Found'}</h1></center>\n<hr><center>nginx</center>\n</body>\n</html>\n`, ...extra };
+    return { status: 200, tipo: 'text/html', corpo: arquivos[arq], ...extra };
+  }
   if (caminho === '/healthz' || caminho === '/health' || caminho === '/ready') return { status: 200, tipo: 'text/plain', corpo: 'ok\n', ...extra };
   switch (nome) {
     case 'nimbus/portal': return html('Nimbus Portal', `version ${v} - served by ${p}`);

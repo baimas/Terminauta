@@ -5,7 +5,7 @@ import { ApiError } from './cluster.js';
 import { kindOf } from './resources.js';
 import { clone, b64, deepEqual } from './util.js';
 import { render, definicoes, TemplateError } from './gotemplate.js';
-import { CHARTS, REPO_URL } from './charts.js';
+import { CHARTS, ehRepo } from './charts.js';
 import { KUBE } from './seed.js';
 import { comUsuario } from './autoriza.js';
 
@@ -74,7 +74,7 @@ function achaChart(ctx, ref, versao) {
   const [nomeRepo, nome] = ref.split('/');
   const repo = repos(fs).find((r) => r.name === nomeRepo);
   if (!repo) throw falha(`repo ${nomeRepo} not found`);
-  const versoes = repo.url === REPO_URL ? CHARTS[nome] : null;
+  const versoes = ehRepo(repo.url) ? CHARTS[nome] : null;
   if (!versoes) throw falha(`chart "${nome}" not found in ${nomeRepo} index. (try 'helm repo update'): no chart name found`);
   const v = versao ? versoes.find((x) => x.versao === String(versao).replace(/^v/, '')) : ultima(versoes);
   if (!v) throw falha(`chart "${nome}" matching ${versao} not found in ${nomeRepo} index. (try 'helm repo update'): no chart version found for ${nome}-${versao}`);
@@ -498,7 +498,7 @@ export async function helm(ctx) {
             if (existente.url === limpa) return ok(`"${nome}" already exists with the same configuration, skipping\n`);
             throw falha(`repository name (${nome}) already exists, please specify a different name`);
           }
-          if (limpa !== REPO_URL) {
+          if (!ehRepo(limpa)) {
             const host = limpa.replace(/^https?:\/\//, '').split('/')[0];
             throw falha(`looks like "${url}" is not a valid chart repository or cannot be reached: Get "${limpa}/index.yaml": dial tcp: lookup ${host} on 172.25.250.254:53: no such host`);
           }
@@ -525,7 +525,7 @@ export async function helm(ctx) {
         const termo = (a.pos[1] || '').toLowerCase();
         const linhas = [['NAME', 'CHART VERSION', 'APP VERSION', 'DESCRIPTION']];
         for (const r of repos(fs)) {
-          if (r.url !== REPO_URL) continue;
+          if (!ehRepo(r.url)) continue;
           for (const [nome, versoes] of Object.entries(CHARTS)) {
             const ref = `${r.name}/${nome}`;
             if (termo && !ref.toLowerCase().includes(termo) && !versoes[0].descricao.toLowerCase().includes(termo)) continue;

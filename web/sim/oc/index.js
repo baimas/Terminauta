@@ -8,6 +8,7 @@ import { fusaoEstrategica, fusaoSimples, jsonPatch } from '../patch.js';
 import { jsonpath, evalPath } from '../jsonpath.js';
 import { findImage, parseRef, IMAGES } from '../images.js';
 import { resolveEnv, podPronto } from '../controllers.js';
+import { destinoTcp } from '../net.js';
 import { VERSAO, KUBE } from '../seed.js';
 import { parseArgs, ok, erro, naoSimulado, nsDe, alvos, umAlvo, lerManifestos, normaliza, tipoOuErro } from './args.js';
 import { tabela, ordena, paraYaml, paraJson, descreve, podResumo } from './output.js';
@@ -865,14 +866,16 @@ function mudaTemplate(ctx, sub, k, nome, ns, fn) {
     c.update(p);
     return true;
   }
-  if (!['Deployment', 'ReplicaSet', 'StatefulSet'].includes(k.kind)) {
+  if (!['Deployment', 'ReplicaSet', 'StatefulSet', 'CronJob'].includes(k.kind)) {
     c.must(k.kind, nome, ns);
     throw erro(`error: ${k.plural}/${nome} the object is not a pod or does not have a pod template: *v1.${k.kind}`);
   }
   const d = clone(c.must(k.kind, nome, ns));
-  const antes = JSON.stringify(d.spec.template);
-  fn(d.spec.template.spec, d);
-  if (JSON.stringify(d.spec.template) === antes) return false;
+  // O template de pod de um CronJob fica dentro do jobTemplate.
+  const modelo = k.kind === 'CronJob' ? d.spec.jobTemplate.spec : d.spec;
+  const antes = JSON.stringify(modelo.template);
+  fn(modelo.template.spec, d);
+  if (JSON.stringify(modelo.template) === antes) return false;
   c.update(d);
   return true;
 }
@@ -1311,6 +1314,12 @@ async function logs(ctx) {
   if (!reg) return esperando('ContainerCreating');
   if (reg.espera) return esperando(reg.espera);
   let linhas = reg.linhas;
+  // Imagem cujo log reflete a conexão feita agora (ex.: cliente do banco).
+  const conecta = findImage(pod.spec.containers[0].image).image?.conecta;
+  if (conecta && pod.status?.phase === 'Running') {
+    const env = resolveEnv(c, pod, pod.spec.containers[0]).env;
+    linhas = conecta(env, destinoTcp(c, pod, env.DB_HOST || '', Number(env.DB_PORT || 3306)));
+  }
   if (f.has('tail')) linhas = linhas.slice(-Number(f.one('tail')));
   const texto = linhas.length ? linhas.join('\n') + '\n' : '';
   if (!f.has('follow') || !ctx.env.write) return { err: aviso, out: texto, code: 0 };

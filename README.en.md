@@ -179,6 +179,21 @@ Installing operators through the web console is not simulated; the game covers t
 - **One channel ahead:** switching an operator channel with manual approval.
 - **Platform oral exam:** five questions on channels, rollback, EUS, and operator updates.
 
+## Lab guide (EX280)
+
+The **G · Lab guide** chapter and the **Lab guide exam (20 questions)** bring the 20 questions of the
+EX280 practical guide, with the wording and objectives exactly as in the guide. Each question is a
+mission (`web/missions/g/guia.js`); the exam gathers all 20 on a single cluster, 3 hours, score 0 to 300.
+
+- The guide uses `ocp4.example.com` (Helm repository, registry, route hosts), and the simulator accepts
+  those names. Where the guide gives scenario variations (other names and values), grading accepts them.
+- Question 9 depends on the secret from Question 8, and 12 on the service account from 11, as in the guide.
+- Question 16 asks for the web console, which is not simulated: the same installation is done through the CLI.
+- The `oc` is the real 4.22: `--docker-image` (`oc new-app`) and `--cpu-percent` (`oc autoscale`) no longer
+  exist. Use `--image` and `--cpu 60%`; each question hints at it.
+- Guide binaries in the simulated shell: `oc`, `helm`, `htpasswd`, `openssl`, `curl`, `tar`, and
+  `/usr/bin/script` (the support submission script of Question 18). The shell also expands `*` and `?`.
+
 ## Flashcards
 
 The **Flashcards** item, at the top of the list, opens a spaced repetition deck in the style

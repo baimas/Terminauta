@@ -75,6 +75,7 @@ import { SIMULADOS, montaExame } from './exames.js';
 import documentacao from './c0/documentacao.js';
 import exportar from './c1/exportar.js';
 import rollback from './c2/rollback.js';
+import QUESTOES_GUIA from './g/guia.js';
 import jobMissao from './c8/job.js';
 import privilegiado from './c8/privilegiado.js';
 
@@ -90,6 +91,10 @@ const CAPITULOS_280 = [
   { id: 'c8', title: { pt: 'Segurança de aplicações', en: 'Application security' }, domain: { pt: 'Service accounts, SCC, jobs e cron jobs', en: 'Service accounts, SCCs, jobs, and cron jobs' }, missions: [anyuid, privilegiado, sccDiagnostico, apiAcesso, jobMissao, cronjobMissao] },
   { id: 'c9', title: { pt: 'Updates', en: 'Updates' }, domain: { pt: 'Atualização do cluster e de operators', en: 'Cluster and operator updates' }, missions: [zstream, minorUp, operadorUp, quizUp] },
 ];
+
+// As 20 questões do guia de laboratório prático, na ordem do guia.
+const CAPITULO_GUIA = { id: 'g', guia: true, title: { pt: 'Guia de laboratório', en: 'Lab guide' }, domain: { pt: 'As 20 questões do guia prático EX280, com o enunciado do guia', en: 'The 20 questions of the EX280 practical guide, with the guide wording' }, missions: QUESTOES_GUIA };
+CAPITULOS_280.push(CAPITULO_GUIA);
 
 const CAPITULOS_180 = [
   { id: 'e1', title: { pt: 'Cluster e CLI', en: 'Cluster and CLI' }, domain: { pt: 'Gerenciar o OpenShift: CLI, inspeção, saúde e dados de suporte', en: 'Manage OpenShift: CLI, inspection, health, and support data' }, missions: [instalarOc, inspecionar180, saude180, suporte180] },

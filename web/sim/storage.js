@@ -34,6 +34,35 @@ export function objetosStorage() {
 // Modos de acesso que cada provisionador aceita.
 const MODOS = { 'topolvm.io': ['ReadWriteOnce', 'ReadWriteOncePod'], 'k8s-sigs.io/nfs-subdir-external-provisioner': ['ReadWriteOnce', 'ReadWriteMany', 'ReadOnlyMany'] };
 
+// Conteúdo dos diretórios exportados pelo servidor NFS do laboratório.
+export const EXPORTS_NFS = {
+  '/exports-ocp4/landing': { 'index.html': '<html>\n  <head><title>Landing page</title></head>\n  <body><h1>Landing page served from NFS</h1></body>\n</html>\n' },
+};
+
+// Capacidade em bytes (1Gi, 500Mi, 1G...).
+const bytes = (q) => {
+  const m = String(q).match(/^(\d+(?:\.\d+)?)([KMGT]i?)?$/);
+  if (!m) return 0;
+  const exp = { K: 1, M: 2, G: 3, T: 4 }[(m[2] || '')[0]] || 0;
+  return Number(m[1]) * (m[2]?.endsWith('i') ? 1024 : 1000) ** exp;
+};
+
+// Procura um PV pré-criado que atenda ao claim (classe, tamanho e modos de acesso).
+function pvEstatico(c, pvc) {
+  const modos = pvc.spec.accessModes || ['ReadWriteOnce'];
+  const pedido = bytes(pvc.spec.resources?.requests?.storage || '0');
+  return c.list('PersistentVolume').find((pv) => {
+    const r = pv.spec.claimRef;
+    if (r && !(r.name === pvc.metadata.name && r.namespace === pvc.metadata.namespace && (!r.uid || r.uid === pvc.metadata.uid))) return false;
+    if (!r && pv.status?.phase && pv.status.phase !== 'Available') return false;
+    if (pv.status?.phase === 'Released' || pv.status?.phase === 'Bound') return false;
+    if (pvc.spec.volumeName && pvc.spec.volumeName !== pv.metadata.name) return false;
+    if ((pv.spec.storageClassName || '') !== (pvc.spec.storageClassName || '')) return false;
+    if (bytes(pv.spec.capacity?.storage) < pedido) return false;
+    return modos.every((m) => (pv.spec.accessModes || []).includes(m));
+  });
+}
+
 export const classePadrao = (c) => c.list('StorageClass').find((s) => s.metadata.annotations?.[PADRAO] === 'true');
 
 // O claim é usado por algum pod (agendado ou à espera)?
@@ -56,6 +85,19 @@ export function storageCtl(c) {
       continue;
     }
     const modos = pvc.spec.accessModes || ['ReadWriteOnce'];
+    const estatico = pvEstatico(c, pvc);
+    if (estatico) {
+      estatico.spec.claimRef = { apiVersion: 'v1', kind: 'PersistentVolumeClaim', name: pvc.metadata.name, namespace: pvc.metadata.namespace, uid: pvc.metadata.uid };
+      estatico.status = { phase: 'Bound' };
+      pvc.spec.volumeName = estatico.metadata.name;
+      pvc.metadata.annotations = { ...pvc.metadata.annotations, 'pv.kubernetes.io/bind-completed': 'yes' };
+      pvc.status = { phase: 'Bound', accessModes: estatico.spec.accessModes, capacity: estatico.spec.capacity };
+      continue;
+    }
+    if (sc.provisioner === 'kubernetes.io/no-provisioner') {
+      evento('sem-pv', 'Normal', 'FailedBinding', 'no persistent volumes available for this claim and no storage class is set', 'persistentvolume-controller');
+      continue;
+    }
     const aceitos = MODOS[sc.provisioner] || ['ReadWriteOnce'];
     const recusado = modos.find((m) => !aceitos.includes(m));
     if (sc.volumeBindingMode === 'WaitForFirstConsumer' && !consumidores(c, pvc).length) {
@@ -93,7 +135,10 @@ export function storageCtl(c) {
   // Volumes cujo claim sumiu: com reclaimPolicy Delete, somem também.
   for (const pv of c.list('PersistentVolume')) {
     const r = pv.spec.claimRef;
-    if (!r) continue;
+    if (!r) {
+      if (!pv.status?.phase) pv.status = { phase: 'Available' };
+      continue;
+    }
     const pvc = c.get('PersistentVolumeClaim', r.name, r.namespace);
     if (pvc && pvc.metadata.uid === r.uid) continue;
     if (pv.spec.persistentVolumeReclaimPolicy === 'Delete') c.delete('PersistentVolume', pv.metadata.name);

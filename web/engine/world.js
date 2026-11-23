@@ -12,7 +12,9 @@ export { REGISTRY, HOME };
 
 export function createWorld({ lang = 'pt-BR', openEditor, sleep, write, ask, salvo } = {}) {
   // Sessões salvas antes da versão 4.22 do jogo usavam o domínio ocp4.example.com.
-  if (salvo && JSON.stringify(salvo).includes('ocp4.example.com')) salvo = JSON.parse(JSON.stringify(salvo).replaceAll('ocp4.example.com', 'lab.example.com'));
+  // As salvas desde então levam a marca `dominio`: o guia de laboratório usa
+  // ocp4.example.com de propósito, e esses nomes não podem ser trocados.
+  if (salvo && !salvo.dominio && JSON.stringify(salvo).includes('ocp4.example.com')) salvo = JSON.parse(JSON.stringify(salvo).replaceAll('ocp4.example.com', 'lab.example.com'));
   const cluster = salvo ? Cluster.restore(salvo.cluster) : new Cluster();
   if (salvo) migra(cluster);
   const fs = salvo ? FS.restore(salvo.fs) : new FS();
@@ -62,7 +64,7 @@ export function createWorld({ lang = 'pt-BR', openEditor, sleep, write, ask, sal
       const m = url.match(/^(https?):\/\/([^/:]+)(?::(\d+))?(\/.*)?$/);
       return requisicao(cluster, null, { https: m[1] === 'https', host: m[2], porta: m[3] ? Number(m[3]) : null, caminho: m[4] || '/' });
     },
-    serialize: () => ({ cluster: cluster.serialize(), fs: fs.serialize(), session: env.session, cwd: shell.cwdEstacao(), vars: shell.varsEstacao() }),
+    serialize: () => ({ dominio: 'lab', cluster: cluster.serialize(), fs: fs.serialize(), session: env.session, cwd: shell.cwdEstacao(), vars: shell.varsEstacao() }),
   };
   return w;
 }
